@@ -1,0 +1,154 @@
+
+import numpy as np
+import torch
+import torch.nn as nn
+
+class RMTAnalyzer:
+    """Random Matrix Theory analyzer for deep learning models"""
+
+    def __init__(self, model: nn.Module):
+        self.model = model
+        self.weight_matrices = {}
+        self.eigenvalue_data = {}
+        self.singular_value_data = {}
+        self.spectral_metrics = {}
+
+    def extract_weight_matrices(self):
+        self.weight_matrices = {}
+        for name, param in self.model.named_parameters():
+            if 'weight' in name and param.dim() >= 2:
+                if param.dim() > 2:
+                    weight = param.view(param.size(0), -1)
+                else:
+                    weight = param
+                self.weight_matrices[name] = weight.detach().clone()
+        return self.weight_matrices
+
+    def compute_eigenvalues(self, matrix: torch.Tensor) -> np.ndarray:
+        if matrix.shape[0] != matrix.shape[1]:
+            correlation_matrix = torch.mm(matrix, matrix.t()) / matrix.shape[1]
+            eigenvals = torch.linalg.eigvals(correlation_matrix).real
+        else:
+            eigenvals = torch.linalg.eigvals(matrix).real
+        return eigenvals.cpu().numpy()
+
+    def compute_singular_values(self, matrix: torch.Tensor) -> np.ndarray:
+        singular_vals = torch.linalg.svdvals(matrix)
+        return singular_vals.cpu().numpy()
+
+    def marchenko_pastur_law(self, eigenvals: np.ndarray, n: int, p: int):
+        if n == 0 or p == 0:
+            return np.array([]), np.array([])
+        gamma = p / n
+        lambda_minus = (1 - np.sqrt(gamma))**2
+        lambda_plus = (1 + np.sqrt(gamma))**2
+        x_min = max(0, lambda_minus - 0.1)
+        x_max = lambda_plus + 0.1
+        x = np.linspace(x_min, x_max, 1000)
+        density = np.zeros_like(x)
+        mask = (x >= lambda_minus) & (x <= lambda_plus)
+        if np.any(mask):
+            x_valid = x[mask]
+            density[mask] = (1 / (2 * np.pi * gamma * x_valid)) * np.sqrt((lambda_plus - x_valid) * (x_valid - lambda_minus))
+        return x, density
+
+    def wigner_semicircle(self, eigenvals: np.ndarray, R: float = None):
+        if R is None:
+            R = 2 * np.std(eigenvals)
+        x = np.linspace(-R, R, 1000)
+        density = (2 / (np.pi * R**2)) * np.sqrt(R**2 - x**2)
+        density[np.abs(x) > R] = 0
+        return x, density
+
+    def compute_spectral_entropy(self, eigenvals: np.ndarray) -> float:
+        eigenvals_pos = np.abs(eigenvals)
+        eigenvals_pos = eigenvals_pos[eigenvals_pos > 1e-12]
+        if len(eigenvals_pos) == 0:
+            return 0.0
+        probs = eigenvals_pos / np.sum(eigenvals_pos)
+        entropy = -np.sum(probs * np.log(probs + 1e-12))
+        return entropy
+
+    def stable_rank(self, singular_vals: np.ndarray) -> float:
+        if len(singular_vals) == 0:
+            return 0.0
+        frobenius_norm_sq = np.sum(singular_vals**2)
+        spectral_norm_sq = singular_vals[0]**2
+        return frobenius_norm_sq / spectral_norm_sq if spectral_norm_sq > 1e-12 else 0.0
+
+import numpy as np
+import torch
+import torch.nn as nn
+
+class RMTAnalyzer:
+    """Random Matrix Theory analyzer for deep learning models"""
+
+    def __init__(self, model: nn.Module):
+        self.model = model
+        self.weight_matrices = {}
+        self.eigenvalue_data = {}
+        self.singular_value_data = {}
+        self.spectral_metrics = {}
+
+    def extract_weight_matrices(self):
+        self.weight_matrices = {}
+        for name, param in self.model.named_parameters():
+            if 'weight' in name and param.dim() >= 2:
+                if param.dim() > 2:
+                    weight = param.view(param.size(0), -1)
+                else:
+                    weight = param
+                self.weight_matrices[name] = weight.detach().clone()
+        return self.weight_matrices
+
+    def compute_eigenvalues(self, matrix: torch.Tensor) -> np.ndarray:
+        if matrix.shape[0] != matrix.shape[1]:
+            correlation_matrix = torch.mm(matrix, matrix.t()) / matrix.shape[1]
+            eigenvals = torch.linalg.eigvals(correlation_matrix).real
+        else:
+            eigenvals = torch.linalg.eigvals(matrix).real
+        return eigenvals.cpu().numpy()
+
+    def compute_singular_values(self, matrix: torch.Tensor) -> np.ndarray:
+        singular_vals = torch.linalg.svdvals(matrix)
+        return singular_vals.cpu().numpy()
+
+    def marchenko_pastur_law(self, eigenvals: np.ndarray, n: int, p: int):
+        if n == 0 or p == 0:
+            return np.array([]), np.array([])
+        gamma = p / n
+        lambda_minus = (1 - np.sqrt(gamma))**2
+        lambda_plus = (1 + np.sqrt(gamma))**2
+        x_min = max(0, lambda_minus - 0.1)
+        x_max = lambda_plus + 0.1
+        x = np.linspace(x_min, x_max, 1000)
+        density = np.zeros_like(x)
+        mask = (x >= lambda_minus) & (x <= lambda_plus)
+        if np.any(mask):
+            x_valid = x[mask]
+            density[mask] = (1 / (2 * np.pi * gamma * x_valid)) * np.sqrt((lambda_plus - x_valid) * (x_valid - lambda_minus))
+        return x, density
+
+    def wigner_semicircle(self, eigenvals: np.ndarray, R: float = None):
+        if R is None:
+            R = 2 * np.std(eigenvals)
+        x = np.linspace(-R, R, 1000)
+        density = (2 / (np.pi * R**2)) * np.sqrt(R**2 - x**2)
+        density[np.abs(x) > R] = 0
+        return x, density
+
+    def compute_spectral_entropy(self, eigenvals: np.ndarray) -> float:
+        eigenvals_pos = np.abs(eigenvals)
+        eigenvals_pos = eigenvals_pos[eigenvals_pos > 1e-12]
+        if len(eigenvals_pos) == 0:
+            return 0.0
+        probs = eigenvals_pos / np.sum(eigenvals_pos)
+        entropy = -np.sum(probs * np.log(probs + 1e-12))
+        return entropy
+
+    def stable_rank(self, singular_vals: np.ndarray) -> float:
+        if len(singular_vals) == 0:
+            return 0.0
+        frobenius_norm_sq = np.sum(singular_vals**2)
+        spectral_norm_sq = singular_vals[0]**2
+        return frobenius_norm_sq / spectral_norm_sq if spectral_norm_sq > 1e-12 else 0.0
